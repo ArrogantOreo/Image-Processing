@@ -50,7 +50,7 @@ vector<vector<double>> applyGaussianFilterWithPadding(const vector<vector<double
 int main() {
     // 1. 读取本地图片 (请确保你的工程目录下有一张 test.jpg)
     // IMREAD_GRAYSCALE 表示将彩色图强制转换为单通道灰度图
-    cv::Mat img = cv::imread("D:\\Collision Distance\\Raw_data\\Police_View\\images\\school_2.jpg", cv::IMREAD_GRAYSCALE);
+    cv::Mat img = cv::imread("D:\\Collision Distance\\Raw_data\\Police_View\\images\\school_2.jpg", cv::IMREAD_COLOR);
     if (img.empty()) {
         cout <<"图片读取失败！请检查当前目录下是否有 test.jpg 文件。" << endl;
         return -1;
@@ -71,26 +71,45 @@ int main() {
 
     // 3. 生成高斯核 (为了肉眼能明显看出效果，我们把核设大一点：11x11，sigma=3.0)
     int kernelSize = 11;
-    double sigma = 3.0;
+    double sigma = 1.0;
     cout << "正在生成 " << kernelSize << "x" << kernelSize << " 的高斯卷积核..." << endl;
     vector<vector<double>> kernel = generateGaussianKernel(kernelSize, sigma);
 
-    // 4. 【核心调用】运行你自己手写的底层高斯滤波算法！
-    cout << "正在执行二维卷积计算，这可能需要几秒钟（体现了算法的时间复杂度）..." << endl;
-    vector<vector<double>> blurredImage = applyGaussianFilterWithPadding(image, kernel);
 
-    // 5. 【数据桥接】将结果转换回 OpenCV 的格式用于显示
-    cv::Mat outImg(rows, cols, CV_8UC1);
-    for (int i = 0; i < rows; ++i) {
-        for (int j = 0; j < cols; ++j) {
-            double val = blurredImage[i][j];
-            val = max(0.0, min(255.0, val)); // 安全截断，防止溢出
-            outImg.at<uchar>(i, j) = static_cast<uchar>(val);
+    // 创建3个通道的矩阵
+    //Opencv的顺序BGR(蓝、绿、红)
+    vector<vector<vector<double>>> channels(3,vector<vector<double>>(rows,vector<double>(cols,0.0)));
+    vector<vector<vector<double>>> blurredChannels(3,vector<vector<double>>(rows,vector<double>(cols,0.0)));
+    
+
+    // 4. 【核心调用】运行你自己手写的底层高斯滤波算法！
+    cout << "正在拆分通道并执行卷积计算..." << endl;
+    for(int c=0;c<3;c++){
+        //数据桥接：提取单通道
+        for(int i=0;i<rows;i++){
+            for(int j=0;j<cols;j++){
+                channels[c][i][j]=static_cast<double>(img.at<cv::Vec3b>(i,j)[c]);
+            }
         }
+        //调用手写高斯滤波算法
+        cout << "正在处理通道 " << c << " (共3通道)..." << endl;
+        blurredChannels[c]=applyGaussianFilterWithPadding(channels[c],kernel);
     }
 
+    // 5. 合并结果回 OpenCV 格式 (CV_8UC3 代表彩色)
+    cv::Mat outImg(rows, cols, CV_8UC3);
+    for(int i=0;i<rows;i++){
+        for(int j=0;j<cols;j++){
+            cv::Vec3b bgr;
+            for(int c=0;c<3;c++){
+                double val=blurredChannels[c][i][j];
+                bgr[c]=static_cast<uchar>(std::max(0.0, std::min(255.0,val)));
+            }
+            outImg.at<cv::Vec3b>(i,j)=bgr;
+        }
+    }
     // 6. 见证奇迹：弹出窗口，并排显示原图和你处理后的图像！
-    cout << "处理完成！请查看弹出的图像窗口。" << endl;
+    cout << "彩色处理完成！请查看弹出的图像窗口。" << endl;
     cv::imshow("Original Image", img);
     cv::imshow("My Custom Gaussian Blur", outImg);
     
