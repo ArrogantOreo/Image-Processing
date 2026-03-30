@@ -4,7 +4,9 @@
 #include <opencv2/opencv.hpp>
 using namespace std;
 vector<vector<double>>generateGaussianKernel(int kernelSize, double sigma){
+    
     vector<vector<double>> kernel(kernelSize, vector<double>(kernelSize ,0.0));
+    
     double sum=0.0;
     int center=kernelSize/2;
     for(int i=0;i<kernelSize;++i){
